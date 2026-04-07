@@ -17,6 +17,10 @@ export interface Demande {
   motif: string;
   dateDemande: string;
   statut: "en_attente" | "validee" | "rejetee";
+  dateValidation?: string;
+  dateRetrait?: string;
+  motifRejet?: string;
+  recuperee?: boolean;
 }
 
 export const TYPES_ATTESTATION = [
@@ -76,13 +80,13 @@ export function saveDemandes(demandes: Demande[]) {
 function generateSeedData(): Demande[] {
   const seeds: Omit<Demande, "id" | "reference">[] = [
     { employeeId: "e1", type: "Attestation de travail", motif: "Demande bancaire", dateDemande: "2025-04-01", statut: "en_attente" },
-    { employeeId: "e2", type: "Attestation de salaire", motif: "Dossier location", dateDemande: "2025-03-28", statut: "validee" },
-    { employeeId: "e3", type: "Certificat de travail", motif: "", dateDemande: "2025-03-25", statut: "rejetee" },
-    { employeeId: "e1", type: "Attestation de congé", motif: "Voyage", dateDemande: "2025-03-20", statut: "validee" },
+    { employeeId: "e2", type: "Attestation de salaire", motif: "Dossier location", dateDemande: "2025-03-28", statut: "validee", dateValidation: "2025-03-30", recuperee: true, dateRetrait: "2025-03-31" },
+    { employeeId: "e3", type: "Certificat de travail", motif: "", dateDemande: "2025-03-25", statut: "rejetee", motifRejet: "Informations incomplètes" },
+    { employeeId: "e1", type: "Attestation de congé", motif: "Voyage", dateDemande: "2025-03-20", statut: "validee", dateValidation: "2025-03-22" },
     { employeeId: "e5", type: "Attestation de domiciliation", motif: "", dateDemande: "2025-04-03", statut: "en_attente" },
     { employeeId: "e6", type: "Attestation de travail", motif: "Visa", dateDemande: "2025-04-02", statut: "en_attente" },
-    { employeeId: "e7", type: "Attestation de salaire", motif: "Crédit immobilier", dateDemande: "2025-03-15", statut: "validee" },
-    { employeeId: "e8", type: "Attestation de stage", motif: "", dateDemande: "2025-03-10", statut: "validee" },
+    { employeeId: "e7", type: "Attestation de salaire", motif: "Crédit immobilier", dateDemande: "2025-03-15", statut: "validee", dateValidation: "2025-03-17", recuperee: true, dateRetrait: "2025-03-20" },
+    { employeeId: "e8", type: "Attestation de stage", motif: "", dateDemande: "2025-03-10", statut: "validee", dateValidation: "2025-03-12" },
   ];
   return seeds.map((s) => ({
     ...s,
@@ -108,10 +112,29 @@ export function creerDemande(employeeId: string, type: string, motif: string): D
   return demande;
 }
 
-export function updateStatut(demandeId: string, statut: "validee" | "rejetee"): Demande[] {
+export function updateStatut(demandeId: string, statut: "validee" | "rejetee", motifRejet?: string): Demande[] {
   const all = loadDemandes();
   const idx = all.findIndex((d) => d.id === demandeId);
-  if (idx !== -1) all[idx].statut = statut;
+  if (idx !== -1) {
+    all[idx].statut = statut;
+    if (statut === "validee") {
+      all[idx].dateValidation = new Date().toISOString().slice(0, 10);
+    }
+    if (statut === "rejetee" && motifRejet) {
+      all[idx].motifRejet = motifRejet;
+    }
+  }
+  saveDemandes(all);
+  return all;
+}
+
+export function confirmerRetrait(demandeId: string): Demande[] {
+  const all = loadDemandes();
+  const idx = all.findIndex((d) => d.id === demandeId);
+  if (idx !== -1) {
+    all[idx].recuperee = true;
+    all[idx].dateRetrait = new Date().toISOString().slice(0, 10);
+  }
   saveDemandes(all);
   return all;
 }
@@ -136,21 +159,38 @@ export function searchEmployees(query: string): Employee[] {
   );
 }
 
-export function filterDemandes(
-  demandes: Demande[],
-  search: string,
-  statusFilter: string
-): Demande[] {
+export interface FilterOptions {
+  search: string;
+  statusFilter: string;
+  typeFilter: string;
+  dateFilter: string;
+  recupereeFilter: string;
+}
+
+export function filterDemandes(demandes: Demande[], filters: FilterOptions): Demande[] {
   let filtered = demandes;
-  if (search) {
-    const q = search.toLowerCase();
+  if (filters.search) {
+    const q = filters.search.toLowerCase();
     filtered = filtered.filter((d) => {
       const name = getEmployeeFullName(d.employeeId).toLowerCase();
       return name.includes(q) || d.reference.toLowerCase().includes(q);
     });
   }
-  if (statusFilter && statusFilter !== "all") {
-    filtered = filtered.filter((d) => d.statut === statusFilter);
+  if (filters.statusFilter && filters.statusFilter !== "all") {
+    filtered = filtered.filter((d) => d.statut === filters.statusFilter);
+  }
+  if (filters.typeFilter && filters.typeFilter !== "all") {
+    filtered = filtered.filter((d) => d.type === filters.typeFilter);
+  }
+  if (filters.dateFilter) {
+    filtered = filtered.filter((d) => d.dateDemande === filters.dateFilter);
+  }
+  if (filters.recupereeFilter && filters.recupereeFilter !== "all") {
+    if (filters.recupereeFilter === "oui") {
+      filtered = filtered.filter((d) => d.recuperee === true);
+    } else {
+      filtered = filtered.filter((d) => !d.recuperee);
+    }
   }
   return filtered;
 }
@@ -173,55 +213,136 @@ export function getTypeDistribution(demandes: Demande[]) {
 }
 
 export function exportToCSV(demandes: Demande[]): string {
-  const header = "Référence,Employé,Type,Date,Statut,Motif\n";
+  const header = "Référence,Employé,Type,Date,Statut,Motif,Récupérée\n";
   const rows = demandes.map((d) => {
     const name = getEmployeeFullName(d.employeeId);
     const statut = d.statut === "en_attente" ? "En attente" : d.statut === "validee" ? "Validée" : "Rejetée";
-    return `${d.reference},"${name}","${d.type}",${d.dateDemande},${statut},"${d.motif}"`;
+    return `${d.reference},"${name}","${d.type}",${d.dateDemande},${statut},"${d.motif}",${d.recuperee ? "Oui" : "Non"}`;
   });
   return header + rows.join("\n");
+}
+
+export function exportToXLSXData(demandes: Demande[]) {
+  return demandes.map((d) => ({
+    "Référence": d.reference,
+    "Employé": getEmployeeFullName(d.employeeId),
+    "Type": d.type,
+    "Date demande": d.dateDemande,
+    "Statut": d.statut === "en_attente" ? "En attente" : d.statut === "validee" ? "Validée" : "Rejetée",
+    "Motif": d.motif,
+    "Date validation": d.dateValidation || "",
+    "Récupérée": d.recuperee ? "Oui" : "Non",
+    "Date retrait": d.dateRetrait || "",
+    "Motif rejet": d.motifRejet || "",
+  }));
 }
 
 export function generatePDFBlob(demande: Demande): Blob {
   const emp = getEmployee(demande.employeeId);
   const statut = demande.statut === "en_attente" ? "En attente" : demande.statut === "validee" ? "Validée" : "Rejetée";
-  const content = `
-ENTREPRISE SARL
-123 Rue du Commerce, Alger
-Tél: +213 21 00 00 00
+  
+  // Build a proper PDF manually
+  const employeeName = emp ? `${emp.prenom} ${emp.nom}` : "N/A";
+  const poste = emp?.poste || "N/A";
+  const departement = emp?.departement || "N/A";
+  const dateStr = new Date().toLocaleDateString("fr-FR");
+  
+  const lines = [
+    "ENTREPRISE SARL",
+    "123 Rue du Commerce, Alger",
+    "Tel: +213 21 00 00 00",
+    "",
+    demande.type.toUpperCase(),
+    "",
+    `Reference: ${demande.reference}`,
+    `Date: ${demande.dateDemande}`,
+    `Statut: ${statut}`,
+    "",
+    "Nous soussignes, certifions que :",
+    "",
+    `Nom complet : ${employeeName}`,
+    `Poste : ${poste}`,
+    `Departement : ${departement}`,
+  ];
+  if (demande.motif) lines.push(`Motif : ${demande.motif}`);
+  lines.push(
+    "",
+    "est bien employe(e) au sein de notre entreprise.",
+    "",
+    "Cette attestation est delivree a l'interesse(e) pour",
+    "servir et valoir ce que de droit.",
+    "",
+    `Fait a Alger, le ${dateStr}`,
+    "",
+    "Signature et Cachet",
+    "Direction des Ressources Humaines"
+  );
 
-═══════════════════════════════════════
+  // Minimal valid PDF
+  const fontSize = 12;
+  const leading = 16;
+  const marginLeft = 50;
+  const pageHeight = 842;
+  const pageWidth = 595;
+  let yPos = pageHeight - 50;
 
-${demande.type.toUpperCase()}
+  const streamLines: string[] = [];
+  streamLines.push("BT");
+  streamLines.push(`/F1 ${fontSize} Tf`);
+  
+  for (const line of lines) {
+    if (yPos < 50) break;
+    streamLines.push(`${marginLeft} ${yPos} Td`);
+    // Escape special chars for PDF
+    const safe = line.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    streamLines.push(`(${safe}) Tj`);
+    streamLines.push(`${-marginLeft} ${-leading} Td`);
+    yPos -= leading;
+  }
+  streamLines.push("ET");
+  
+  const stream = streamLines.join("\n");
+  
+  const pdf = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
 
-Référence: ${demande.reference}
-Date: ${demande.dateDemande}
-Statut: ${statut}
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
 
-═══════════════════════════════════════
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
 
-Nous soussignés, certifions que :
+4 0 obj
+<< /Length ${stream.length} >>
+stream
+${stream}
+endstream
+endobj
 
-Nom complet : ${emp ? `${emp.prenom} ${emp.nom}` : "N/A"}
-Poste : ${emp?.poste || "N/A"}
-Département : ${emp?.departement || "N/A"}
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
 
-${demande.motif ? `Motif : ${demande.motif}` : ""}
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000282 00000 n 
+${String(300 + stream.length).padStart(10, "0")} 00000 n 
 
-est bien employé(e) au sein de notre entreprise.
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+${350 + stream.length}
+%%EOF`;
 
-Cette attestation est délivrée à l'intéressé(e) pour
-servir et valoir ce que de droit.
-
-═══════════════════════════════════════
-
-Fait à Alger, le ${new Date().toLocaleDateString("fr-FR")}
-
-Signature et Cachet
-Direction des Ressources Humaines
-  `.trim();
-
-  return new Blob([content], { type: "application/pdf" });
+  return new Blob([pdf], { type: "application/pdf" });
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

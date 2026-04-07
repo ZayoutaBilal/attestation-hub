@@ -4,6 +4,7 @@ import { StatusBadge } from "./StatusBadge";
 import { EmployeeAvatar } from "./EmployeeAvatar";
 import type { Demande } from "@/lib/attestation-logic";
 import { getEmployee, generatePDFBlob, downloadBlob } from "@/lib/attestation-logic";
+import { Badge } from "@/components/ui/badge";
 
 interface DemandeTableProps {
   demandes: Demande[];
@@ -35,9 +36,10 @@ export function DemandeTable({ demandes, showActions, onValider, onRejeter, onVo
           <tr className="border-b bg-muted/50">
             <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Réf.</th>
             <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employé</th>
-            <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type d'attestation</th>
+            <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</th>
             <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
             <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Statut</th>
+            <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Récupérée</th>
             {showActions && <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>}
           </tr>
         </thead>
@@ -61,6 +63,15 @@ export function DemandeTable({ demandes, showActions, onValider, onRejeter, onVo
                   {new Date(d.dateDemande).toLocaleDateString("fr-FR")}
                 </td>
                 <td className="py-3 px-4"><StatusBadge statut={d.statut} /></td>
+                <td className="py-3 px-4">
+                  {d.statut === "validee" ? (
+                    <Badge variant={d.recuperee ? "default" : "secondary"} className={d.recuperee ? "bg-primary/10 text-primary border-primary/20" : ""}>
+                      {d.recuperee ? "Oui" : "Non"}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
                 {showActions && (
                   <td className="py-3 px-4">
                     <div className="flex items-center justify-end gap-1">
@@ -69,7 +80,7 @@ export function DemandeTable({ demandes, showActions, onValider, onRejeter, onVo
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => onValider?.(d.id)} title="Valider">
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onRejeter?.(d.id)} title="Rejeter">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => onRejeter?.(d.id)} title="Rejeter">
                             <X className="h-4 w-4" />
                           </Button>
                         </>
@@ -77,7 +88,7 @@ export function DemandeTable({ demandes, showActions, onValider, onRejeter, onVo
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onVoirDetails?.(d)} title="Voir détails">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleDownload(d)} title="Télécharger">
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleDownload(d)} title="Télécharger PDF">
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
