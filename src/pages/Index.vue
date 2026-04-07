@@ -24,6 +24,7 @@ import {
   searchEmployees,
   getEmployeeFullName,
   type Demande,
+  type Employee,
 } from "@/lib/attestation-logic";
 import { toast } from "vue-sonner";
 import * as XLSX from "xlsx";
@@ -40,6 +41,7 @@ const detailDemande = ref<Demande | null>(null);
 const rejetDemandeId = ref<string | null>(null);
 const rhSearchQuery = ref("");
 const rhSelectedEmployeeId = ref<string | null>(null);
+const rhSearchResults = ref<Employee[]>([]);
 
 const filters = computed(() => ({
   search: search.value, 
@@ -92,18 +94,26 @@ const rhArchiveGroupedByType = computed(() => {
 
 const handleRhSearch = () => {
   const q = rhSearchQuery.value.trim();
+  rhSelectedEmployeeId.value = null;
   if (!q) {
-     rhSelectedEmployeeId.value = null;
+     rhSearchResults.value = [];
      return;
   }
   const results = searchEmployees(q);
-  if (results.length > 0) {
-     rhSelectedEmployeeId.value = results[0].id;
-     toast.success(`Archives trouvées pour ${getEmployeeFullName(results[0].id)}`);
-  } else {
+  rhSearchResults.value = results;
+  
+  if (results.length === 0) {
      rhSelectedEmployeeId.value = "not-found";
      toast.error(`Aucun employé trouvé pour "${q}"`);
+  } else if (results.length === 1) {
+     rhSelectedEmployeeId.value = results[0].id;
+     toast.success(`Archives trouvées pour ${getEmployeeFullName(results[0].id)}`);
   }
+};
+
+const selectRhEmployee = (id: string) => {
+  rhSelectedEmployeeId.value = id;
+  toast.success(`Archives trouvées pour ${getEmployeeFullName(id)}`);
 };
 
 const rejetDemande = computed(() => demandes.value.find((d) => d.id === rejetDemandeId.value));
@@ -254,10 +264,6 @@ const handleExport = (data: Demande[]) => {
         <TabsContent value="gestion-rh" class="space-y-4">
           <div class="flex items-center justify-between">
             <p class="text-sm text-muted-foreground">{{ filtered.length }} demande(s)</p>
-            <Button variant="outline" size="sm" class="gap-2" @click="() => handleExport(filtered)">
-              <Download class="h-4 w-4" />
-              Exporter .xlsx
-            </Button>
           </div>
           <FilterBar
             v-model:search="search"
@@ -302,10 +308,31 @@ const handleExport = (data: Demande[]) => {
             <Button @click="handleRhSearch">Chercher</Button>
           </div>
           
+          <div v-if="rhSearchResults.length > 1 && !rhSelectedEmployeeId" class="mt-4 grid gap-2">
+            <p class="text-sm font-medium text-muted-foreground mb-2">Plusieurs employés trouvés, veuillez sélectionner :</p>
+            <div
+              v-for="emp in rhSearchResults"
+              :key="emp.id"
+              class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted transition-colors bg-card"
+              @click="selectRhEmployee(emp.id)"
+            >
+               <div>
+                  <p class="font-medium">{{ emp.prenom }} {{ emp.nom }}</p>
+                  <p class="text-xs text-muted-foreground">{{ emp.poste }} - {{ emp.departement }}</p>
+               </div>
+               <Button variant="outline" size="sm">Sélectionner</Button>
+            </div>
+          </div>
+          
           <div v-if="rhSelectedEmployeeId && rhSelectedEmployeeId !== 'not-found'" class="mt-4">
-             <h3 class="font-medium text-sm text-muted-foreground mb-3">
-               Archives de : {{ getEmployeeFullName(rhSelectedEmployeeId) }}
-             </h3>
+             <div class="flex items-center justify-between mb-3">
+               <h3 class="font-medium text-sm text-muted-foreground">
+                 Archives de : {{ getEmployeeFullName(rhSelectedEmployeeId) }}
+               </h3>
+               <Button v-if="rhSearchResults.length > 1" variant="ghost" size="sm" @click="rhSelectedEmployeeId = null">
+                 Retour aux résultats
+               </Button>
+             </div>
              <ArchiveSection :groupedArchives="rhArchiveGroupedByType" />
           </div>
           <div v-else-if="rhSelectedEmployeeId === 'not-found'" class="text-center py-16 text-muted-foreground border rounded-lg bg-card mt-4">

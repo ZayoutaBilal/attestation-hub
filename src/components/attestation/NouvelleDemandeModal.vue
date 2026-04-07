@@ -4,11 +4,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import EmployeeAvatar from "./EmployeeAvatar.vue";
 import { TYPES_ATTESTATION, EMPLOYEES, CURRENT_USER_ID, searchEmployees, getEmployee } from "@/lib/attestation-logic";
 import type { Employee } from "@/lib/attestation-logic";
-import { User, Users, Search } from "lucide-vue-next";
+import { User, Users, Search, Check, ChevronsUpDown } from "lucide-vue-next";
 
 interface NouvelleDemandeModalProps {
   open: boolean;
@@ -26,6 +27,7 @@ const selectedEmployee = ref<Employee | null>(null);
 const empSearch = ref("");
 const type = ref("");
 const motif = ref("");
+const typeDropdownOpen = ref(false);
 
 const filteredEmployees = computed(() => {
   if (!empSearch.value) return EMPLOYEES.filter((e) => e.id !== CURRENT_USER_ID);
@@ -39,6 +41,7 @@ const reset = () => {
   empSearch.value = "";
   type.value = "";
   motif.value = "";
+  typeDropdownOpen.value = false;
 };
 
 const handleClose = () => {
@@ -148,14 +151,33 @@ const getEmpDept = () => {
 
           <div class="space-y-2">
             <label class="text-sm font-medium">Type d'attestation *</label>
-            <Select :model-value="type" @update:model-value="(val) => type = String(val)">
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="t in TYPES_ATTESTATION" :key="t" :value="t">{{ t }}</SelectItem>
-              </SelectContent>
-            </Select>
+            <Popover v-model:open="typeDropdownOpen">
+              <PopoverTrigger as-child>
+                <Button variant="outline" role="combobox" :aria-expanded="typeDropdownOpen" class="w-full justify-between font-normal" :class="!type && 'text-muted-foreground text-left'">
+                  <span class="truncate">{{ type ? type : 'Sélectionner un type...' }}</span>
+                  <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent class="w-[400px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Rechercher un type d'attestation..." />
+                  <CommandEmpty>Aucun type trouvé.</CommandEmpty>
+                  <CommandList>
+                    <CommandGroup>
+                      <CommandItem
+                        v-for="t in TYPES_ATTESTATION"
+                        :key="t"
+                        :value="t"
+                        @select="() => { type = t; typeDropdownOpen = false; }"
+                      >
+                        <Check :class="['mr-2 h-4 w-4 shrink-0', type === t ? 'opacity-100' : 'opacity-0']" />
+                        <span class="truncate">{{ t }}</span>
+                      </CommandItem>
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div class="space-y-2">
