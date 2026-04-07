@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Download, Calendar, FolderArchive } from "lucide-vue-next";
+import { ref } from "vue";
+import { Download, Calendar, FolderArchive, CopyCheck } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Accordion,
   AccordionContent,
@@ -16,6 +18,29 @@ interface ArchiveSectionProps {
 }
 
 const props = defineProps<ArchiveSectionProps>();
+
+const selectedDemandes = ref<string[]>([]);
+
+const toggleSelection = (id: string, checked: boolean) => {
+  if (checked) {
+    if (!selectedDemandes.value.includes(id)) {
+      selectedDemandes.value.push(id);
+    }
+  } else {
+    selectedDemandes.value = selectedDemandes.value.filter(sId => sId !== id);
+  }
+};
+
+const handleDownloadSelected = () => {
+  const allDemandes = Object.values(props.groupedArchives).flat();
+  const toDownload = allDemandes.filter(d => selectedDemandes.value.includes(d.id));
+  toDownload.forEach((d, index) => {
+    setTimeout(() => {
+      const blob = generatePDFBlob(d);
+      downloadBlob(blob, `${d.reference}.pdf`);
+    }, index * 300);
+  });
+};
 
 const handleDownload = (demande: Demande) => {
   const blob = generatePDFBlob(demande);
@@ -33,8 +58,15 @@ const format_date = (date: string) => {
     <p class="text-lg font-medium">Aucune archive disponible</p>
     <p class="text-sm mt-1">Vos attestations apparaîtront ici une fois créées.</p>
   </div>
-  
   <div v-else class="space-y-4">
+    <div v-if="selectedDemandes.length > 0" class="flex justify-between items-center bg-muted/50 p-3 rounded-lg border">
+      <span class="text-sm font-medium">{{ selectedDemandes.length }} attestation(s) sélectionnée(s)</span>
+      <Button size="sm" class="gap-2" @click="handleDownloadSelected">
+        <CopyCheck class="h-4 w-4" />
+        Télécharger la sélection
+      </Button>
+    </div>
+
     <Accordion type="multiple" class="w-full bg-card border rounded-lg overflow-hidden">
       <AccordionItem v-for="(demandes, type) in groupedArchives" :key="type" :value="type" class="px-4">
         <AccordionTrigger class="hover:no-underline py-4">
@@ -53,6 +85,10 @@ const format_date = (date: string) => {
               class="flex items-center justify-between p-3 rounded-lg border bg-background/50 hover:bg-muted/30 transition-colors"
             >
               <div class="flex items-center gap-4">
+                <Checkbox 
+                  :checked="selectedDemandes.includes(d.id)" 
+                  @update:checked="(val: boolean) => toggleSelection(d.id, val)" 
+                />
                 <div class="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
                   <Calendar class="h-4 w-4" />
                 </div>

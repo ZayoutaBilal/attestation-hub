@@ -24,16 +24,75 @@ export interface Demande {
 }
 
 export const TYPES_ATTESTATION = [
+  // 📥 Embauche
+  "Contrat de travail (CDI)",
+  "Contrat de travail (CDD)",
+  "Contrat d'apprentissage",
+  "Contrat de professionnalisation",
+  "Avenant au contrat de travail",
+  "DPAE (Déclaration Préalable à l'Embauche)",
+  "Promesse d'embauche",
+  "Fiche de poste",
+  "Livret d'accueil",
+  "Notice d'information mutuelle / prévoyance",
+  "Livret d'épargne salariale",
+
+  // 📋 En cours de contrat — Attestations
   "Attestation de travail",
   "Attestation de salaire",
   "Attestation de stage",
-  "Attestation de domiciliation",
-  "Attestation de congé",
+  "Attestation de domicile",
+  "Attestation de domiciliation bancaire",
+  "Attestation de congés payés (avec solde)",
+  "Attestation de présence",
+  "Attestation de mutuelle",
+  "Attestation de télétravail",
+  "Attestation d'activité",
+  "Attestation annuelle de salaires",
+  "Attestation de formation",
+  "Attestation de détachement",
+  "Attestation de déclaration de salaire",
+  "Bulletin de paie",
+
+  // 📋 En cours de contrat — Suivi RH
+  "Avis de visite médicale (médecine du travail)",
+  "Convocation entretien professionnel",
+  "Compte-rendu entretien professionnel",
+  "Compte-rendu entretien annuel d'évaluation",
+  "Notification de période d'essai (renouvellement / rupture)",
+  "Autorisation de congés",
+  "Demande de congés sans solde",
+  "Ordre de mission",
+  "Note de frais",
+  "Avance sur salaire",
+  "Accord de télétravail",
+
+  // ⚠️ Disciplinaire
+  "Convocation entretien préalable",
+  "Lettre d'avertissement",
+  "Lettre de mise à pied",
+  "Notification de licenciement",
+  "Convocation entretien rupture conventionnelle",
+  "Convention de rupture conventionnelle (Cerfa)",
+
+  // 📤 Fin de contrat
   "Certificat de travail",
+  "Attestation France Travail",
+  "Attestation de reprise de travail",
+  "Reçu pour solde de tout compte",
+  "Solde de tout compte (détail)",
+  "Lettre de démission",
+  "Lettre de départ à la retraite",
+  "Portabilité mutuelle (information)",
+
+  // 🗂️ Registres & obligations légales
+  "Registre unique du personnel",
+  "Registre des accidents du travail bénins",
+  "Document Unique d'Évaluation des Risques (DUER)",
 ];
 
-const STORAGE_KEY_DEMANDES = "attestation_demandes";
-const STORAGE_KEY_COUNTER = "attestation_counter";
+const STORAGE_KEY_DEMANDES = "attestation_demandes_v2";
+const STORAGE_KEY_COUNTER = "attestation_counter_v2";
 
 // ---- Mock employees ----
 export const EMPLOYEES: Employee[] = [
@@ -45,6 +104,7 @@ export const EMPLOYEES: Employee[] = [
   { id: "e6", nom: "Taleb", prenom: "Omar", poste: "Designer UX/UI", departement: "IT", avatar: "OT" },
   { id: "e7", nom: "Rahmani", prenom: "Nadia", poste: "Ingénieure QA", departement: "IT", avatar: "NR" },
   { id: "e8", nom: "Ferhat", prenom: "Mourad", poste: "Directeur Commercial", departement: "Ventes", avatar: "MF" },
+  { id: "e9", nom: "Benani", prenom: "Amin", poste: "Développeuse Full-Stack", departement: "IT", avatar: "AB" },
 ];
 
 export const CURRENT_USER_ID = "e1";
@@ -79,14 +139,44 @@ export function saveDemandes(demandes: Demande[]) {
 
 function generateSeedData(): Demande[] {
   const seeds: Omit<Demande, "id" | "reference">[] = [
-    { employeeId: "e1", type: "Attestation de travail", motif: "Demande bancaire", dateDemande: "2025-04-01", statut: "en_attente" },
-    { employeeId: "e2", type: "Attestation de salaire", motif: "Dossier location", dateDemande: "2025-03-28", statut: "validee", dateValidation: "2025-03-30", recuperee: true, dateRetrait: "2025-03-31" },
+    // Anciennes demandes (pour la pagination ou l'historique)
+    { employeeId: "e1", type: "Attestation de travail", motif: "Voyage pro", dateDemande: "2024-11-15", statut: "validee", dateValidation: "2024-11-16", recuperee: true, dateRetrait: "2024-11-18" },
+    { employeeId: "e1", type: "Attestation de travail", motif: "Banque", dateDemande: "2024-05-10", statut: "validee", dateValidation: "2024-05-11", recuperee: true, dateRetrait: "2024-05-12" },
+    { employeeId: "e1", type: "Attestation de salaire", motif: "Prêt", dateDemande: "2024-12-10", statut: "validee", dateValidation: "2024-12-11", recuperee: true, dateRetrait: "2024-12-15" },
+    { employeeId: "e1", type: "Attestation de salaire", motif: "Renouvellement", dateDemande: "2025-01-05", statut: "validee", dateValidation: "2025-01-07" },
+    { employeeId: "e1", type: "Attestation de salaire", motif: "Location", dateDemande: "2023-08-20", statut: "validee", dateValidation: "2023-08-21", recuperee: true, dateRetrait: "2023-08-25" },
+    { employeeId: "e1", type: "Certificat de travail", motif: "Visa", dateDemande: "2025-02-20", statut: "validee", dateValidation: "2025-02-22", recuperee: true, dateRetrait: "2025-02-25" },
+    { employeeId: "e1", type: "Certificat de travail", motif: "Logement", dateDemande: "2024-01-10", statut: "validee", dateValidation: "2024-01-12", recuperee: true, dateRetrait: "2024-01-15" },
+    { employeeId: "e1", type: "Certificat de travail", motif: "Personnel", dateDemande: "2024-09-05", statut: "validee", dateValidation: "2024-09-06", recuperee: false },
+
+    // Demandes récentes pour créer des pics dans l'analyse
+    { employeeId: "e2", type: "Attestation de salaire", motif: "Dossier location", dateDemande: "2025-03-25", statut: "validee", dateValidation: "2025-03-26", recuperee: true, dateRetrait: "2025-03-28" },
     { employeeId: "e3", type: "Certificat de travail", motif: "", dateDemande: "2025-03-25", statut: "rejetee", motifRejet: "Informations incomplètes" },
-    { employeeId: "e1", type: "Attestation de congé", motif: "Voyage", dateDemande: "2025-03-20", statut: "validee", dateValidation: "2025-03-22" },
+    { employeeId: "e4", type: "Attestation de domicile", motif: "Mairie", dateDemande: "2025-03-28", statut: "en_attente" },
+    { employeeId: "e5", type: "Attestation de salaire", motif: "Renouvellement carte", dateDemande: "2025-03-28", statut: "validee", dateValidation: "2025-03-29", recuperee: true, dateRetrait: "2025-03-31" },
+
+    // Pic fin mars / début avril
+    { employeeId: "e1", type: "Attestation de travail", motif: "Demande bancaire", dateDemande: "2025-04-01", statut: "en_attente" },
+    { employeeId: "e6", type: "Attestation de travail", motif: "Visa", dateDemande: "2025-04-01", statut: "en_attente" },
+    { employeeId: "e7", type: "Bulletin de paie", motif: "Crédit", dateDemande: "2025-04-01", statut: "validee", dateValidation: "2025-04-03" },
+
+    { employeeId: "e8", type: "Attestation de stage", motif: "Université", dateDemande: "2025-04-02", statut: "validee", dateValidation: "2025-04-03", recuperee: true, dateRetrait: "2025-04-05" },
+    { employeeId: "e2", type: "Attestation de travail", motif: "Voyage", dateDemande: "2025-04-02", statut: "en_attente" },
+
     { employeeId: "e5", type: "Attestation de domiciliation", motif: "", dateDemande: "2025-04-03", statut: "en_attente" },
-    { employeeId: "e6", type: "Attestation de travail", motif: "Visa", dateDemande: "2025-04-02", statut: "en_attente" },
-    { employeeId: "e7", type: "Attestation de salaire", motif: "Crédit immobilier", dateDemande: "2025-03-15", statut: "validee", dateValidation: "2025-03-17", recuperee: true, dateRetrait: "2025-03-20" },
-    { employeeId: "e8", type: "Attestation de stage", motif: "", dateDemande: "2025-03-10", statut: "validee", dateValidation: "2025-03-12" },
+    { employeeId: "e3", type: "Attestation France Travail", motif: "Inscription", dateDemande: "2025-04-03", statut: "rejetee", motifRejet: "Erreur de saisie" },
+    { employeeId: "e7", type: "Attestation de salaire", motif: "Crédit immobilier", dateDemande: "2025-04-03", statut: "validee", dateValidation: "2025-04-04", recuperee: true, dateRetrait: "2025-04-05" },
+
+    { employeeId: "e4", type: "Attestation de détachement", motif: "Projet", dateDemande: "2025-04-04", statut: "en_attente" },
+    { employeeId: "e1", type: "Attestation de congés payés (avec solde)", motif: "Voyage", dateDemande: "2025-04-04", statut: "validee", dateValidation: "2025-04-05" },
+
+    { employeeId: "e6", type: "Certificat de travail", motif: "Administration", dateDemande: "2025-04-05", statut: "en_attente" },
+    { employeeId: "e8", type: "Attestation de salaire", motif: "Logement", dateDemande: "2025-04-05", statut: "en_attente" },
+
+    // Demandes pour Amin Benani (e9) pour enrichir son historique (3 attestations bien réparties)
+    { employeeId: "e9", type: "Attestation de travail", motif: "Visa Schengen", dateDemande: "2025-03-10", statut: "validee", dateValidation: "2025-03-11", recuperee: true, dateRetrait: "2025-03-15" },
+    { employeeId: "e9", type: "Attestation de salaire", motif: "Achat voiture", dateDemande: "2025-04-02", statut: "validee", dateValidation: "2025-04-03", recuperee: false },
+    { employeeId: "e9", type: "Certificat de travail", motif: "Dossier administratif", dateDemande: "2025-04-06", statut: "en_attente" },
   ];
   return seeds.map((s) => ({
     ...s,
@@ -240,13 +330,13 @@ export function exportToXLSXData(demandes: Demande[]) {
 export function generatePDFBlob(demande: Demande): Blob {
   const emp = getEmployee(demande.employeeId);
   const statut = demande.statut === "en_attente" ? "En attente" : demande.statut === "validee" ? "Validée" : "Rejetée";
-  
+
   // Build a proper PDF manually
   const employeeName = emp ? `${emp.prenom} ${emp.nom}` : "N/A";
   const poste = emp?.poste || "N/A";
   const departement = emp?.departement || "N/A";
   const dateStr = new Date().toLocaleDateString("fr-FR");
-  
+
   const lines = [
     "ENTREPRISE SARL",
     "123 Rue du Commerce, Alger",
@@ -289,7 +379,7 @@ export function generatePDFBlob(demande: Demande): Blob {
   const streamLines: string[] = [];
   streamLines.push("BT");
   streamLines.push(`/F1 ${fontSize} Tf`);
-  
+
   for (const line of lines) {
     if (yPos < 50) break;
     streamLines.push(`${marginLeft} ${yPos} Td`);
@@ -300,9 +390,9 @@ export function generatePDFBlob(demande: Demande): Blob {
     yPos -= leading;
   }
   streamLines.push("ET");
-  
+
   const stream = streamLines.join("\n");
-  
+
   const pdf = `%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>

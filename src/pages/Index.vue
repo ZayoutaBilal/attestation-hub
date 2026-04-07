@@ -2,7 +2,8 @@
 import { ref, computed } from "vue";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, BarChart3, ClipboardList, Shield, FileText, Clock, CheckCircle, XCircle, Archive } from "lucide-vue-next";
+import { Input } from "@/components/ui/input";
+import { Plus, Download, BarChart3, ClipboardList, Shield, FileText, Clock, CheckCircle, XCircle, Archive, Search } from "lucide-vue-next";
 import DemandeTable from "@/components/attestation/DemandeTable.vue";
 import ArchiveSection from "@/components/attestation/ArchiveSection.vue";
 import FilterBar from "@/components/attestation/FilterBar.vue";
@@ -20,6 +21,8 @@ import {
   exportToXLSXData,
   getStats,
   CURRENT_USER_ID,
+  searchEmployees,
+  getEmployeeFullName,
   type Demande,
 } from "@/lib/attestation-logic";
 import { toast } from "vue-sonner";
@@ -35,6 +38,8 @@ const recupereeFilter = ref("all");
 const modalOpen = ref(false);
 const detailDemande = ref<Demande | null>(null);
 const rejetDemandeId = ref<string | null>(null);
+const rhSearchQuery = ref("");
+const rhSelectedEmployeeId = ref<string | null>(null);
 
 const filters = computed(() => ({
   search: search.value, 
@@ -51,7 +56,7 @@ const filtered = computed(() => filterDemandes(baseDemandes.value, filters.value
 
 const archiveGroupedByType = computed(() => {
   const grouped: Record<string, Demande[]> = {};
-  const userDemandes = demandes.value.filter((d) => d.employeeId === CURRENT_USER_ID);
+  const userDemandes = demandes.value.filter((d) => d.employeeId === CURRENT_USER_ID && d.statut === "validee");
   
   for (const d of userDemandes) {
     if (!grouped[d.type]) grouped[d.type] = [];
@@ -64,6 +69,42 @@ const archiveGroupedByType = computed(() => {
   
   return grouped;
 });
+
+const rhArchiveGroupedByType = computed(() => {
+  if (!rhSelectedEmployeeId.value || rhSelectedEmployeeId.value === "not-found") return {};
+  
+  const grouped: Record<string, Demande[]> = {};
+  const empDemandes = demandes.value.filter(
+    (d) => d.employeeId === rhSelectedEmployeeId.value && d.statut === "validee"
+  );
+  
+  for (const d of empDemandes) {
+    if (!grouped[d.type]) grouped[d.type] = [];
+    grouped[d.type].push(d);
+  }
+  
+  for (const type in grouped) {
+    grouped[type].sort((a,b) => new Date(a.dateDemande).getTime() - new Date(b.dateDemande).getTime());
+  }
+  
+  return grouped;
+});
+
+const handleRhSearch = () => {
+  const q = rhSearchQuery.value.trim();
+  if (!q) {
+     rhSelectedEmployeeId.value = null;
+     return;
+  }
+  const results = searchEmployees(q);
+  if (results.length > 0) {
+     rhSelectedEmployeeId.value = results[0].id;
+     toast.success(`Archives trouvées pour ${getEmployeeFullName(results[0].id)}`);
+  } else {
+     rhSelectedEmployeeId.value = "not-found";
+     toast.error(`Aucun employé trouvé pour "${q}"`);
+  }
+};
 
 const rejetDemande = computed(() => demandes.value.find((d) => d.id === rejetDemandeId.value));
 
@@ -149,7 +190,11 @@ const handleExport = (data: Demande[]) => {
           </TabsTrigger>
           <TabsTrigger value="archives" class="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
             <Archive class="h-4 w-4" />
-            Archives
+            Mon archive
+          </TabsTrigger>
+          <TabsTrigger value="archives-rh" class="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+            <Search class="h-4 w-4" />
+            Archives RH
           </TabsTrigger>
         </TabsList>
 
@@ -209,6 +254,33 @@ const handleExport = (data: Demande[]) => {
         <!-- Archives -->
         <TabsContent value="archives">
           <ArchiveSection :groupedArchives="archiveGroupedByType" />
+        </TabsContent>
+
+        <!-- Archives RH -->
+        <TabsContent value="archives-rh" class="space-y-4">
+          <div class="flex gap-4">
+            <div class="relative flex-1 max-w-md">
+              <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher le nom d'un employé..."
+                v-model="rhSearchQuery"
+                @keyup.enter="handleRhSearch"
+                class="pl-9"
+              />
+            </div>
+            <Button @click="handleRhSearch">Chercher</Button>
+          </div>
+          
+          <div v-if="rhSelectedEmployeeId && rhSelectedEmployeeId !== 'not-found'" class="mt-4">
+             <h3 class="font-medium text-sm text-muted-foreground mb-3">
+               Archives de : {{ getEmployeeFullName(rhSelectedEmployeeId) }}
+             </h3>
+             <ArchiveSection :groupedArchives="rhArchiveGroupedByType" />
+          </div>
+          <div v-else-if="rhSelectedEmployeeId === 'not-found'" class="text-center py-16 text-muted-foreground border rounded-lg bg-card mt-4">
+             <p class="text-lg font-medium">Employé introuvable</p>
+             <p class="text-sm mt-1">Veuillez vérifier le nom et réessayer.</p>
+          </div>
         </TabsContent>
       </Tabs>
     </main>
