@@ -157,12 +157,26 @@ const handleExport = (data: Demande[]) => {
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold tracking-tight">Gestion des Attestations</h1>
-          <p class="text-sm text-muted-foreground">Portail RH — Entreprise SARL</p>
         </div>
-        <Button @click="modalOpen = true" class="gap-2">
-          <Plus class="h-4 w-4" />
-          Nouvelle Demande
-        </Button>
+        <div class="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            class="flex items-center gap-2"
+            @click="() => handleExport(filtered)"
+          >
+            <Download class="h-4 w-4" />
+            Exporter
+          </Button>
+
+          <Button
+            @click="modalOpen = true"
+            class="flex items-center gap-2"
+          >
+            <Plus class="h-4 w-4" />
+            Nouvelle Demande
+          </Button>
+        </div>
       </div>
 
       <!-- Stat cards -->
@@ -175,37 +189,54 @@ const handleExport = (data: Demande[]) => {
 
       <!-- Tabs -->
       <Tabs v-model="activeTab" class="space-y-4">
-        <TabsList class="bg-muted p-1 h-auto">
-          <TabsTrigger value="mes-demandes" class="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            <ClipboardList class="h-4 w-4" />
-            Mes Demandes
-          </TabsTrigger>
-          <TabsTrigger value="gestion-rh" class="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            <Shield class="h-4 w-4" />
-            Gestion RH
-          </TabsTrigger>
-          <TabsTrigger value="analyse" class="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            <BarChart3 class="h-4 w-4" />
-            Analyse
-          </TabsTrigger>
-          <TabsTrigger value="archives" class="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            <Archive class="h-4 w-4" />
-            Mon archive
-          </TabsTrigger>
-          <TabsTrigger value="archives-rh" class="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-            <Search class="h-4 w-4" />
-            Archives RH
-          </TabsTrigger>
-        </TabsList>
+      <TabsList class="bg-muted p-2 flex flex-wrap gap-3 rounded-lg w-full mb-6">
+
+        <TabsTrigger
+          value="mes-demandes"
+          class="flex items-center gap-2 px-4 py-2 rounded-md border bg-background hover:bg-accent transition"
+        >
+          <ClipboardList class="h-4 w-4 shrink-0" />
+          <span>Mes Demandes</span>
+        </TabsTrigger>
+
+        <TabsTrigger
+          value="archives"
+          class="flex items-center gap-2 px-4 py-2 rounded-md border bg-background hover:bg-accent transition"
+        >
+          <Archive class="h-4 w-4 shrink-0" />
+          <span>Mon archive</span>
+        </TabsTrigger>
+
+        <TabsTrigger
+          value="gestion-rh"
+          class="flex items-center gap-2 px-4 py-2 rounded-md border bg-background hover:bg-accent transition"
+        >
+          <Shield class="h-4 w-4 shrink-0" />
+          <span>Gestion RH</span>
+        </TabsTrigger>
+
+        <TabsTrigger
+          value="archives-rh"
+          class="flex items-center gap-2 px-4 py-2 rounded-md border bg-background hover:bg-accent transition"
+        >
+          <Search class="h-4 w-4 shrink-0" />
+          <span>Archives RH</span>
+        </TabsTrigger>
+
+        <TabsTrigger
+          value="analyse"
+          class="flex items-center gap-2 px-4 py-2 rounded-md border bg-background hover:bg-accent transition"
+        >
+          <BarChart3 class="h-4 w-4 shrink-0" />
+          <span>Analyse</span>
+        </TabsTrigger>
+
+      </TabsList>
 
         <!-- Mes Demandes -->
         <TabsContent value="mes-demandes" class="space-y-4">
           <div class="flex items-center justify-between">
             <p class="text-sm text-muted-foreground">{{ filtered.length }} demande(s)</p>
-            <Button variant="outline" size="sm" class="gap-2" @click="() => handleExport(filtered)">
-              <Download class="h-4 w-4" />
-              Exporter .xlsx
-            </Button>
           </div>
           <FilterBar
             v-model:search="search"
