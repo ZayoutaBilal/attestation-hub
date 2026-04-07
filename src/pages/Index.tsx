@@ -1,34 +1,52 @@
 import { useState, useMemo, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, FileSpreadsheet, BarChart3, ClipboardList, Shield } from "lucide-react";
+import { Plus, Download, BarChart3, ClipboardList, Shield } from "lucide-react";
 import { DemandeTable } from "@/components/attestation/DemandeTable";
 import { FilterBar } from "@/components/attestation/FilterBar";
 import { NouvelleDemandeModal } from "@/components/attestation/NouvelleDemandeModal";
 import { DetailModal } from "@/components/attestation/DetailModal";
+import { RejetModal } from "@/components/attestation/RejetModal";
 import { AnalyseDashboard } from "@/components/attestation/AnalyseDashboard";
+import { StatCard } from "@/components/attestation/StatCard";
+import { FileText, Clock, CheckCircle, XCircle } from "lucide-react";
 import {
   loadDemandes,
   creerDemande,
   updateStatut,
+  confirmerRetrait,
   filterDemandes,
-  exportToCSV,
-  downloadCSV,
+  exportToXLSXData,
+  getStats,
   CURRENT_USER_ID,
   type Demande,
+  type FilterOptions,
 } from "@/lib/attestation-logic";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 export default function Index() {
   const [demandes, setDemandes] = useState<Demande[]>(loadDemandes);
+  const [activeTab, setActiveTab] = useState("mes-demandes");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
+  const [recupereeFilter, setRecupereeFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [detailDemande, setDetailDemande] = useState<Demande | null>(null);
+  const [rejetDemandeId, setRejetDemandeId] = useState<string | null>(null);
 
-  const mesDemandes = useMemo(() => demandes.filter((d) => d.employeeId === CURRENT_USER_ID), [demandes]);
-  const filteredRH = useMemo(() => filterDemandes(demandes, search, statusFilter), [demandes, search, statusFilter]);
-  const filteredMes = useMemo(() => filterDemandes(mesDemandes, search, statusFilter), [mesDemandes, search, statusFilter]);
+  const filters: FilterOptions = useMemo(() => ({
+    search, statusFilter, typeFilter, dateFilter, recupereeFilter,
+  }), [search, statusFilter, typeFilter, dateFilter, recupereeFilter]);
+
+  const isRH = activeTab === "gestion-rh" || activeTab === "analyse";
+  const baseDemandes = useMemo(() => isRH ? demandes : demandes.filter((d) => d.employeeId === CURRENT_USER_ID), [demandes, isRH]);
+  const stats = useMemo(() => getStats(baseDemandes), [baseDemandes]);
+  const filtered = useMemo(() => filterDemandes(baseDemandes, filters), [baseDemandes, filters]);
+
+  const rejetDemande = useMemo(() => demandes.find((d) => d.id === rejetDemandeId), [demandes, rejetDemandeId]);
 
   const handleSubmit = useCallback((employeeId: string, type: string, motif: string) => {
     creerDemande(employeeId, type, motif);
@@ -43,41 +61,59 @@ export default function Index() {
   }, []);
 
   const handleRejeter = useCallback((id: string) => {
-    const updated = updateStatut(id, "rejetee");
+    setRejetDemandeId(id);
+  }, []);
+
+  const handleConfirmRejet = useCallback((motif: string) => {
+    if (!rejetDemandeId) return;
+    const updated = updateStatut(rejetDemandeId, "rejetee", motif);
     setDemandes(updated);
-    toast("Demande rejetée", { description: "Le statut a été mis à jour." });
+    setRejetDemandeId(null);
+    toast("Demande rejetée", { description: "Le motif a été enregistré." });
+  }, [rejetDemandeId]);
+
+  const handleConfirmerRetrait = useCallback((id: string) => {
+    const updated = confirmerRetrait(id);
+    setDemandes(updated);
+    const updatedDemande = updated.find((d) => d.id === id);
+    if (updatedDemande) setDetailDemande(updatedDemande);
+    toast.success("Retrait confirmé");
   }, []);
 
   const handleExport = (data: Demande[]) => {
-    const csv = exportToCSV(data);
-    downloadCSV(csv, `attestations_${new Date().toISOString().slice(0, 10)}.csv`);
-    toast.success("Export CSV téléchargé");
+    const xlsxData = exportToXLSXData(data);
+    const ws = XLSX.utils.json_to_sheet(xlsxData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Attestations");
+    XLSX.writeFile(wb, `attestations_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success("Export Excel téléchargé");
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-              <FileSpreadsheet className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">Gestion des Attestations</h1>
-              <p className="text-xs text-muted-foreground">Portail RH — Entreprise SARL</p>
-            </div>
+      <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Title bar */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Gestion des Attestations</h1>
+            <p className="text-sm text-muted-foreground">Portail RH — Entreprise SARL</p>
           </div>
           <Button onClick={() => setModalOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Nouvelle Demande
           </Button>
         </div>
-      </header>
 
-      {/* Main */}
-      <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <Tabs defaultValue="mes-demandes" className="space-y-6">
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="Total des demandes" value={stats.total} icon={FileText} variant="default" />
+          <StatCard title="En attente" value={stats.enAttente} icon={Clock} variant="pending" />
+          <StatCard title="Validées" value={stats.validees} icon={CheckCircle} variant="approved" />
+          <StatCard title="Rejetées" value={stats.rejetees} icon={XCircle} variant="rejected" />
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-muted p-1 h-auto">
             <TabsTrigger value="mes-demandes" className="gap-2 data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <ClipboardList className="h-4 w-4" />
@@ -96,37 +132,43 @@ export default function Index() {
           {/* Mes Demandes */}
           <TabsContent value="mes-demandes" className="space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Mes Demandes</h2>
-                <p className="text-sm text-muted-foreground">{mesDemandes.length} demande(s) au total</p>
-              </div>
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => handleExport(filteredMes)}>
+              <p className="text-sm text-muted-foreground">{filtered.length} demande(s)</p>
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => handleExport(filtered)}>
                 <Download className="h-4 w-4" />
-                Exporter
+                Exporter .xlsx
               </Button>
             </div>
-            <FilterBar search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} />
+            <FilterBar
+              search={search} onSearchChange={setSearch}
+              statusFilter={statusFilter} onStatusFilterChange={setStatusFilter}
+              typeFilter={typeFilter} onTypeFilterChange={setTypeFilter}
+              dateFilter={dateFilter} onDateFilterChange={setDateFilter}
+              recupereeFilter={recupereeFilter} onRecupereeFilterChange={setRecupereeFilter}
+            />
             <div className="rounded-lg border bg-card overflow-hidden">
-              <DemandeTable demandes={filteredMes} showActions={false} onVoirDetails={setDetailDemande} />
+              <DemandeTable demandes={filtered} showActions={false} onVoirDetails={setDetailDemande} />
             </div>
           </TabsContent>
 
           {/* Gestion RH */}
           <TabsContent value="gestion-rh" className="space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Gestion RH</h2>
-                <p className="text-sm text-muted-foreground">{demandes.length} demande(s) — Toutes les demandes</p>
-              </div>
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => handleExport(filteredRH)}>
+              <p className="text-sm text-muted-foreground">{filtered.length} demande(s)</p>
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => handleExport(filtered)}>
                 <Download className="h-4 w-4" />
-                Exporter
+                Exporter .xlsx
               </Button>
             </div>
-            <FilterBar search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} />
+            <FilterBar
+              search={search} onSearchChange={setSearch}
+              statusFilter={statusFilter} onStatusFilterChange={setStatusFilter}
+              typeFilter={typeFilter} onTypeFilterChange={setTypeFilter}
+              dateFilter={dateFilter} onDateFilterChange={setDateFilter}
+              recupereeFilter={recupereeFilter} onRecupereeFilterChange={setRecupereeFilter}
+            />
             <div className="rounded-lg border bg-card overflow-hidden">
               <DemandeTable
-                demandes={filteredRH}
+                demandes={filtered}
                 showActions
                 onValider={handleValider}
                 onRejeter={handleRejeter}
@@ -143,7 +185,13 @@ export default function Index() {
       </main>
 
       <NouvelleDemandeModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit} />
-      <DetailModal demande={detailDemande} open={!!detailDemande} onClose={() => setDetailDemande(null)} />
+      <DetailModal demande={detailDemande} open={!!detailDemande} onClose={() => setDetailDemande(null)} onConfirmerRetrait={handleConfirmerRetrait} />
+      <RejetModal
+        open={!!rejetDemandeId}
+        onClose={() => setRejetDemandeId(null)}
+        onConfirm={handleConfirmRejet}
+        reference={rejetDemande?.reference || ""}
+      />
     </div>
   );
 }
